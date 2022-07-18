@@ -1,58 +1,88 @@
-import { mount, ReactWrapper } from 'enzyme';
+import { render, screen } from '@testing-library/react';
+import { uniqueId } from 'lodash';
 import React from 'react';
 
-import {
-  dateMath,
-  dateTime,
-  FieldConfigSource,
-  LoadingState,
-  PanelData,
-  PanelProps,
-  TimeRange,
-  toDataFrame,
-  VizOrientation,
-} from '@grafana/data';
+import { dateMath, dateTime, EventBus, LoadingState, TimeRange, toDataFrame, VizOrientation } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { BarGaugeDisplayMode } from '@grafana/ui';
 
-import { BarGaugePanel } from './BarGaugePanel';
-import { PanelOptions } from './models.gen';
+import { BarGaugePanel, BarGaugePanelProps } from './BarGaugePanel';
 
 const valueSelector = selectors.components.Panels.Visualization.BarGauge.valueV2;
 
-describe('BarGaugePanel', () => {
-  describe('when empty result is rendered', () => {
-    const wrapper = createBarGaugePanelWithData({
+function buildPanelData(overrideValues?: Partial<BarGaugePanelProps>): BarGaugePanelProps {
+  const timeRange = createTimeRange();
+  const defaultValues = {
+    id: Number(uniqueId()),
+    data: {
       series: [],
-      timeRange: createTimeRange(),
       state: LoadingState.Done,
-    });
+      timeRange,
+    },
+    options: {
+      displayMode: BarGaugeDisplayMode.Lcd,
+      reduceOptions: {
+        calcs: ['mean'],
+        values: false,
+      },
+      orientation: VizOrientation.Horizontal,
+      showUnfilled: true,
+      minVizHeight: 10,
+      minVizWidth: 0,
+    },
+    transparent: false,
+    timeRange,
+    timeZone: 'utc',
+    title: 'hello',
+    fieldConfig: {
+      defaults: {},
+      overrides: [],
+    },
+    onFieldConfigChange: jest.fn(),
+    onOptionsChange: jest.fn(),
+    onChangeTimeRange: jest.fn(),
+    replaceVariables: jest.fn(),
+    renderCounter: 0,
+    width: 552,
+    height: 250,
+    eventBus: {} as EventBus,
+  };
 
-    it('should render with title "No data"', () => {
-      const displayValue = wrapper.find(`div[data-testid="${valueSelector}"]`).text();
-      expect(displayValue).toBe('No data');
+  return {
+    ...defaultValues,
+    ...overrideValues,
+  };
+}
+describe('BarGaugePanel', () => {
+  describe('when there is no data', () => {
+    it('show a "No Data" message', () => {
+      const panelData = buildPanelData();
+      render(<BarGaugePanel {...panelData} />);
+
+      expect(screen.getByText(/no data/i)).toHaveTextContent('No data');
     });
   });
 
   describe('when there is data', () => {
-    const wrapper = createBarGaugePanelWithData({
-      series: [
-        toDataFrame({
-          target: 'test',
-          datapoints: [
-            [100, 1000],
-            [100, 200],
-          ],
-        }),
-      ],
-      timeRange: createTimeRange(),
-      state: LoadingState.Done,
+    const panelData = buildPanelData({
+      data: {
+        series: [
+          toDataFrame({
+            target: 'test',
+            datapoints: [
+              [100, 1000],
+              [100, 200],
+            ],
+          }),
+        ],
+        timeRange: createTimeRange(),
+        state: LoadingState.Done,
+      },
     });
 
-    it('should render with title "No data"', () => {
-      const displayValue = wrapper.find(`div[data-testid="${valueSelector}"]`).text();
-      expect(displayValue).toBe('100');
-    });
+    render(<BarGaugePanel {...panelData} />);
+
+    expect(screen.getByTestId(valueSelector)).not.toBeInTheDocument();
   });
 });
 
@@ -62,45 +92,4 @@ function createTimeRange(): TimeRange {
     to: dateMath.parse('now') || dateTime(),
     raw: { from: 'now-6h', to: 'now' },
   };
-}
-
-function createBarGaugePanelWithData(data: PanelData): ReactWrapper<PanelProps<PanelOptions>> {
-  const timeRange = createTimeRange();
-
-  const options: PanelOptions = {
-    displayMode: BarGaugeDisplayMode.Lcd,
-    reduceOptions: {
-      calcs: ['mean'],
-      values: false,
-    },
-    orientation: VizOrientation.Horizontal,
-    showUnfilled: true,
-    minVizHeight: 10,
-    minVizWidth: 0,
-  };
-  const fieldConfig: FieldConfigSource = {
-    defaults: {},
-    overrides: [],
-  };
-
-  return mount<BarGaugePanel>(
-    <BarGaugePanel
-      id={1}
-      data={data}
-      timeRange={timeRange}
-      timeZone={'utc'}
-      options={options}
-      title="hello"
-      fieldConfig={fieldConfig}
-      onFieldConfigChange={() => {}}
-      onOptionsChange={() => {}}
-      onChangeTimeRange={() => {}}
-      replaceVariables={(s) => s}
-      renderCounter={0}
-      width={532}
-      transparent={false}
-      height={250}
-      eventBus={{} as any}
-    />
-  );
 }
