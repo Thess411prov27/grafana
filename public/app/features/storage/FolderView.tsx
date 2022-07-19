@@ -5,14 +5,18 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { DataFrame, GrafanaTheme2 } from '@grafana/data';
 import { Table, useStyles2 } from '@grafana/ui';
 
+import { UploadView } from './UploadView';
 import { StorageView } from './types';
 
 interface Props {
   listing: DataFrame;
+  path: string;
+  onPathChange: (p: string, view?: StorageView) => void;
   view: StorageView;
+  fileNames: string[];
 }
 
-export function FolderView({ listing, view }: Props) {
+export function FolderView({ listing, path, onPathChange, view, fileNames }: Props) {
   const styles = useStyles2(getStyles);
 
   switch (view) {
@@ -20,6 +24,21 @@ export function FolderView({ listing, view }: Props) {
       return <div>CONFIGURE?</div>;
     case StorageView.Perms:
       return <div>Permissions</div>;
+    case StorageView.Upload:
+      return (
+        <UploadView
+          folder={path}
+          onUpload={(rsp) => {
+            console.log('Uploaded: ' + path);
+            if (rsp.path) {
+              onPathChange(rsp.path);
+            } else {
+              onPathChange(path); // back to data
+            }
+          }}
+          fileNames={fileNames}
+        />
+      );
   }
 
   return (
